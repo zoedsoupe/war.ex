@@ -30,18 +30,21 @@ defmodule War do
     List.foldr(deck, {[], []}, &deal_player/2)
   end
 
+  defp deal_player(card, {p1, p2}) do
+    if length(p1) == length(p2) do
+      {[apply_ace_weight(card) | p1], p2}
+    else
+      {p1, [apply_ace_weight(card) | p2]}
+    end
+  end
+
   defp play_game(p1, p2) do
     if winner = maybe_get_winner(p1, p2) do
       winner
     else
-      case play_turn(p1, p2) do
-        {winner, []} ->
-          winner
-
-        {turn_winner, cards} ->
-          push_cards(turn_winner, cards)
-          play_game(p1, p2)
-      end
+      {turn_winner, cards} = play_turn(p1 ,p2)
+      push_cards(turn_winner, cards)
+      play_game(p1, p2)
     end
   end
 
@@ -49,6 +52,11 @@ defmodule War do
     x = x || Queue.dequeue(p1)
     y = y || Queue.dequeue(p2)
     cards = [x, y]
+
+    dbg(tied)
+    dbg(cards, charlists: :as_lists)
+    dbg(x)
+    dbg(y)
 
     cond do
       x > y -> {p1, cards ++ tied}
@@ -58,32 +66,22 @@ defmodule War do
   end
 
   defp war(p1, p2, tied) do
-    [x, y] = Enum.take(tied, 2)
-    tied = Enum.drop(tied, 2)
-
     cond do
       !able_to_war?(p1) ->
-        cards = tied ++ Queue.flush(p1)
-        push_cards(p2, cards)
-        {p2, []}
+        cards = Queue.flush(p1) ++ tied
+        {p2, cards}
 
       !able_to_war?(p2) ->
-        cards = tied ++ Queue.flush(p2)
-        push_cards(p1, cards)
-        {p1, []}
+        cards = Queue.flush(p2) ++ tied
+        {p1, cards}
 
       true ->
-        {turn_winner, cards} = play_turn(p1, p2, x, y, tied)
-        push_cards(turn_winner, cards)
-        play_game(p1, p2)
-    end
-  end
-
-  defp deal_player(card, {p1, p2}) do
-    if length(p1) == length(p2) do
-      {[apply_ace_weight(card) | p1], p2}
-    else
-      {p1, [apply_ace_weight(card) | p2]}
+        face_down = [Queue.dequeue(p1), Queue.dequeue(p2)]
+        dbg(face_down, charlists: :as_lists)
+        [next_x, next_y] = [Queue.dequeue(p1), Queue.dequeue(p2)]
+        dbg(next_x)
+        dbg(next_y)
+        play_turn(p1, p2, next_x, next_y, tied ++ face_down)
     end
   end
 
