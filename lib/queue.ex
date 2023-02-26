@@ -1,125 +1,62 @@
 defmodule Queue do
-  use GenServer
+  defstruct list: [], size: 0
 
-  @intial_state %{
-    size: 0,
-    queue: []
-  }
-
-  # Client - Public and high level API
-
-  def start_link do
-    GenServer.start_link(__MODULE__, @intial_state)
+  def new do
+    struct!(__MODULE__)
   end
 
-  def enqueue(pid, elems) do
-    GenServer.cast(pid, {:enqueue, elems})
+  def enqueue(%Queue{} = q, elems) when is_list(elems) do
+    List.foldl(elems, q, &enq/2)
   end
 
-  def dequeue(pid) do
-    GenServer.call(pid, :dequeue)
+  def enqueue(%Queue{} = q, elem) do
+    enq(elem, q)
   end
 
-  def dequeue(pid, many) do
-    GenServer.call(pid, {:dequeue, many})
+  defp enq(elem, %Queue{list: xs, size: x} = q) do
+    %{q | list: List.insert_at(xs, -1, elem), size: x + 1}
   end
 
-  def size(pid) do
-    GenServer.call(pid, :size)
+  def dequeue(%Queue{} = q, n) do
+    {elems, q} =
+      Enum.reduce(1..n, {[], q}, fn
+        _, {elems, state} ->
+          {elem, state} = deq(state)
+          {[elem | elems], state}
+      end)
+
+    {Enum.reverse(elems), q}
   end
 
-  def front(pid) do
-    GenServer.call(pid, :front)
+  def dequeue(%Queue{} = q) do
+    deq(q)
   end
 
-  def rear(pid) do
-    GenServer.call(pid, :rear)
+  defp deq(%Queue{list: []} = q) do
+    {nil, q}
   end
 
-  def flush(pid) do
-    GenServer.call(pid, :flush)
+  defp deq(%Queue{list: xs, size: x} = q) do
+    {hd(xs), %{q | list: tl(xs), size: x - 1}}
   end
 
-  # Server - Public but internal API
-  # handle_cast - handle the demand asynchronously
-  # handle_call - handle the demand eagerly
-
-  @impl true
-  def init(init) do
-    {:ok, init}
+  def size(%Queue{} = q) do
+    q.size
   end
 
-  @impl true
-  def handle_call(:size, _from, state) do
-    {:reply, state.size, state}
+  def front(%Queue{} = q) do
+    List.first(q.list)
   end
 
-  def handle_call(:front, _from, state) do
-    %{queue: xs} = state
-
-    case xs do
-      [] -> {:reply, nil, state}
-      [x | _] -> {:reply, x, state}
-    end
+  def rear(%Queue{} = q) do
+    List.last(q.list)
   end
 
-  def handle_call(:rear, _from, state) do
-    %{queue: xs} = state
-
-    case xs do
-      [] -> {:reply, nil, state}
-      xs -> {:reply, List.last(xs), state}
-    end
+  def flush(%Queue{} = q) do
+    {q.list, new()}
   end
 
-  def handle_call(:flush, _from, state) do
-    {elems, state} = deq_many(state, state.size)
-
-    {:reply, elems, state}
-  end
-
-  def handle_call(:dequeue, _from, state) do
-    {elem, state} = deq(state)
-
-    {:reply, elem, state}
-  end
-
-  def handle_call({:dequeue, many}, _from, state) do
-    {elems, state} = deq_many(state, many)
-
-    {:reply, Enum.reverse(elems), state}
-  end
-
-  defp deq_many(state, n) do
-    Enum.reduce(1..n, {[], state}, fn
-      _, {elems, state} ->
-        {elem, state} = deq(state)
-
-        {[elem | elems], state}
-    end)
-  end
-
-  defp deq(state) do
-    %{queue: xs, size: size} = state
-
-    case xs do
-      [] -> {nil, state}
-      [x | xs] -> {x, %{state | queue: xs, size: size - 1}}
-    end
-  end
-
-  @impl true
-  def handle_cast({:enqueue, elems}, state) when is_list(elems) do
-    %{queue: xs, size: x} = state
-
-    xs = List.foldr(elems, xs, &[&1 | &2])
-
-    {:noreply, %{state | size: x + length(elems), queue: xs}}
-  end
-
-  def handle_cast({:enqueue, elem}, state) do
-    %{queue: xs, size: x} = state
-
-    {:noreply, %{state | size: x + 1, queue: Enum.reverse([elem | xs])}}
+  def inspect(%Queue{} = q) do
+    q.list
   end
 end

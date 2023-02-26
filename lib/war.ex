@@ -11,19 +11,18 @@ defmodule War do
   @ace_weight 14
 
   def deal(deck) do
-    {deck_1, deck_2} = deal_deck(deck)
+    {d1, d2} = deal_deck(deck)
 
-    {:ok, player_1} = Queue.start_link()
-    {:ok, player_2} = Queue.start_link()
+    p1 = Queue.enqueue(Queue.new(), d1)
+    p2 = Queue.enqueue(Queue.new(), d2)
 
-    :ok = Queue.enqueue(player_1, deck_1)
-    :ok = Queue.enqueue(player_2, deck_2)
-
-    winner = play_game(player_1, player_2)
+    winner = play_game(p1, p2)
 
     Queue.size(winner)
     |> then(&Queue.dequeue(winner, &1))
-    |> Enum.map(&remove_ace_weight/1)
+    |> then(fn {elems, _q} ->
+      Enum.map(elems, &remove_ace_weight/1)
+    end)
   end
 
   defp deal_deck(deck) do
@@ -42,21 +41,17 @@ defmodule War do
     if winner = maybe_get_winner(p1, p2) do
       winner
     else
-      {turn_winner, cards} = play_turn(p1 ,p2)
+      {turn_winner, cards} = play_turn(p1, p2)
       push_cards(turn_winner, cards)
       play_game(p1, p2)
     end
   end
 
   defp play_turn(p1, p2, x \\ nil, y \\ nil, tied \\ []) do
-    x = x || Queue.dequeue(p1)
-    y = y || Queue.dequeue(p2)
-    cards = [x, y]
+    {x, p1} = (x && {x, p1}) || Queue.dequeue(p1)
+    {y, p2} = (y && {y, p2}) || Queue.dequeue(p1)
 
-    dbg(tied)
-    dbg(cards, charlists: :as_lists)
-    dbg(x)
-    dbg(y)
+    cards = [x, y]
 
     cond do
       x > y -> {p1, cards ++ tied}
@@ -68,20 +63,17 @@ defmodule War do
   defp war(p1, p2, tied) do
     cond do
       !able_to_war?(p1) ->
-        cards = Queue.flush(p1) ++ tied
-        {p2, cards}
+        {cards, p2} = Queue.flush(p2)
+        {p2, cards ++ tied}
 
       !able_to_war?(p2) ->
-        cards = Queue.flush(p2) ++ tied
-        {p1, cards}
+        {cards, p1} = Queue.flush(p1)
+        {p1, cards ++ tied}
 
       true ->
-        face_down = [Queue.dequeue(p1), Queue.dequeue(p2)]
-        dbg(face_down, charlists: :as_lists)
-        [next_x, next_y] = [Queue.dequeue(p1), Queue.dequeue(p2)]
-        dbg(next_x)
-        dbg(next_y)
-        play_turn(p1, p2, next_x, next_y, tied ++ face_down)
+        {[d1, n1], p1} = Queue.dequeue(p1, 2)
+        {[d2, n2], p2} = Queue.dequeue(p2, 2)
+        play_turn(p1, p2, n1, n2, tied ++ [d1, d2])
     end
   end
 
