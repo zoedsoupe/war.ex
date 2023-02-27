@@ -5,16 +5,16 @@ defmodule War do
 
   You can run all tests executing `elixir war.ex`.
   """
-  require Integer
 
-  # prefers to use a weight as we don't represent the cards
+  # prefers to use a weight as we don't
+  # need to represent the card suite
   @ace_weight 14
 
   def deal(deck) do
     {d1, d2} = deal_deck(deck)
 
-    p1 = Queue.enqueue(Queue.new(), d1)
-    p2 = Queue.enqueue(Queue.new(), d2)
+    p1 = Queue.enqueue(Queue.new(:player_1), d1)
+    p2 = Queue.enqueue(Queue.new(:player_2), d2)
 
     winner = play_game(p1, p2)
 
@@ -41,34 +41,43 @@ defmodule War do
     if winner = maybe_get_winner(p1, p2) do
       winner
     else
-      {turn_winner, cards} = play_turn(p1, p2)
-      push_cards(turn_winner, cards)
-      play_game(p1, p2)
+      {turn_winner, turn_loser, cards} = play_turn(p1, p2) |> dbg()
+
+      case push_cards(turn_winner, cards) do
+        %{name: :player_1} = turn_winner ->
+          play_game(turn_winner, turn_loser)
+
+        %{name: :player_2} = turn_winner ->
+          play_game(turn_loser, turn_winner)
+      end
     end
   end
 
   defp play_turn(p1, p2, x \\ nil, y \\ nil, tied \\ []) do
-    {x, p1} = (x && {x, p1}) || Queue.dequeue(p1)
-    {y, p2} = (y && {y, p2}) || Queue.dequeue(p1)
+    {x, p1} = maybe_dequeue(p1, x)
+    {y, p2} = maybe_dequeue(p2, y)
 
     cards = [x, y]
 
     cond do
-      x > y -> {p1, cards ++ tied}
-      x < y -> {p2, cards ++ tied}
+      x > y -> {p1, p2, cards ++ tied}
+      x < y -> {p2, p1, cards ++ tied}
       x == y -> war(p1, p2, cards ++ tied)
     end
   end
+
+  defp maybe_dequeue(p, nil), do: Queue.dequeue(p)
+  defp maybe_dequeue(p, c), do: {c, p}
 
   defp war(p1, p2, tied) do
     cond do
       !able_to_war?(p1) ->
         {cards, p2} = Queue.flush(p2)
-        {p2, cards ++ tied}
+        {p2, p1, cards ++ tied ++ Queue.inspect(p1)}
 
       !able_to_war?(p2) ->
         {cards, p1} = Queue.flush(p1)
-        {p1, cards ++ tied}
+        {p1, p2, cards ++ tied}
 
       true ->
         {[d1, n1], p1} = Queue.dequeue(p1, 2)
@@ -103,6 +112,6 @@ defmodule War do
   defp push_cards(player, cards) do
     cards = Enum.sort(cards, :desc)
 
-    Queue.enqueue(player, cards)
+    Enum.reduce(cards, player, &Queue.enqueue(&2, &1))
   end
 end
