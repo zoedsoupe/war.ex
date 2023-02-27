@@ -3,7 +3,7 @@ defmodule QueueTest do
 
   describe "enqueue/2" do
     test "enqueue only 1 elem" do
-      assert %Queue{} = q = Queue.new()
+      assert %Queue{} = q = Queue.new(:queue)
 
       q = Queue.enqueue(q, 1)
       q = Queue.enqueue(q, 2)
@@ -14,7 +14,7 @@ defmodule QueueTest do
     end
 
     test "enqueue many elements" do
-      assert %Queue{} = q = Queue.new()
+      assert %Queue{} = q = Queue.new(:queue)
 
       q = Queue.enqueue(q, [1, 2, 3])
 
@@ -23,7 +23,7 @@ defmodule QueueTest do
     end
 
     test "enqueue returns correct order" do
-      assert %Queue{} = q = Queue.new()
+      assert %Queue{} = q = Queue.new(:queue)
 
       assert q = Queue.enqueue(q, [1])
       assert Queue.size(q) == 1
@@ -46,7 +46,7 @@ defmodule QueueTest do
   end
 
   test "dequeue/1" do
-    assert %Queue{} = q = Queue.new()
+    assert %Queue{} = q = Queue.new(:queue)
 
     q = Queue.enqueue(q, [1, 2, 3])
 
@@ -57,7 +57,7 @@ defmodule QueueTest do
   end
 
   test "dequeue/2" do
-    assert %Queue{} = q = Queue.new()
+    assert %Queue{} = q = Queue.new(:queue)
 
     q = Queue.enqueue(q, [1, 2, 3])
 
@@ -66,12 +66,12 @@ defmodule QueueTest do
 
   describe "size/1" do
     test "when empty" do
-      assert %Queue{} = q = Queue.new()
+      assert %Queue{} = q = Queue.new(:queue)
       assert Queue.size(q) == 0
     end
 
     test "when has one elem" do
-      assert %Queue{} = q = Queue.new()
+      assert %Queue{} = q = Queue.new(:queue)
 
       q = Queue.enqueue(q, 1)
 
@@ -79,7 +79,7 @@ defmodule QueueTest do
     end
 
     test "when has many elems" do
-      assert %Queue{} = q = Queue.new()
+      assert %Queue{} = q = Queue.new(:queue)
 
       q = Queue.enqueue(q, [1, 2, 3])
 
@@ -89,14 +89,14 @@ defmodule QueueTest do
 
   describe "front/1" do
     test "when empty" do
-      assert %Queue{} = q = Queue.new()
+      assert %Queue{} = q = Queue.new(:queue)
 
       assert Queue.size(q) == 0
       refute Queue.front(q)
     end
 
     test "when has elems" do
-      assert %Queue{} = q = Queue.new()
+      assert %Queue{} = q = Queue.new(:queue)
 
       q = Queue.enqueue(q, [1, 2])
 
@@ -107,7 +107,7 @@ defmodule QueueTest do
   end
 
   test "flush/1" do
-    assert %Queue{} = q = Queue.new()
+    assert %Queue{} = q = Queue.new(:queue)
 
     q = Queue.enqueue(q, [1, 2, 3])
 

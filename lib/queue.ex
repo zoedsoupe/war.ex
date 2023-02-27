@@ -1,8 +1,16 @@
 defmodule Queue do
-  defstruct list: [], size: 0
+  @fields ~w(list size name)a
+  @enforce_keys ~w(name)a
+  defstruct @fields
 
-  def new do
-    struct!(__MODULE__)
+  def new(name, list \\ [])
+
+  def new(name, []) do
+    struct!(__MODULE__, name: name, list: [], size: 0)
+  end
+
+  def new(name, list) do
+    struct!(__MODULE__, name: name, list: list, size: length(list))
   end
 
   def enqueue(%Queue{} = q, elems) when is_list(elems) do
@@ -53,7 +61,7 @@ defmodule Queue do
   end
 
   def flush(%Queue{} = q) do
-    {q.list, new()}
+    {q.list, new(q.name)}
   end
 
   def inspect(%Queue{} = q) do
