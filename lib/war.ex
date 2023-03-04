@@ -13,19 +13,15 @@ defmodule War do
   def deal(deck) do
     {d1, d2} = deal_deck(deck)
 
-    p1 = Queue.enqueue(Queue.new(:player_1), d1)
-    p2 = Queue.enqueue(Queue.new(:player_2), d2)
+    p1 = Player.new(d1)
+    p2 = Player.new(d2)
 
     winner = play_game(p1, p2)
 
-    Queue.size(winner)
-    |> then(&Queue.dequeue(winner, &1))
-    |> then(fn {elems, _q} ->
-      Enum.map(elems, &remove_ace_weight/1)
-    end)
+    Enum.map(Player.flush_deck(winner), &remove_ace_weight/1)
   end
 
-  defp deal_deck(deck) do
+  def deal_deck(deck) do
     List.foldr(deck, {[], []}, &deal_player/2)
   end
 
@@ -37,65 +33,53 @@ defmodule War do
     end
   end
 
-  defp play_game(p1, p2) do
+  defp play_game(p1, p2, x \\ nil, y \\ nil, tied \\ []) do
     if winner = maybe_get_winner(p1, p2) do
+      :ok = Player.add_to_pile(winner, tied)
+      :ok = Player.add_pile_to_deck(winner)
+
       winner
     else
-      {turn_winner, turn_loser, cards} = play_turn(p1, p2) |> dbg()
+      x = maybe_remove_top(p1, x)
+      y = maybe_remove_top(p2, y)
 
-      case push_cards(turn_winner, cards) do
-        %{name: :player_1} = turn_winner ->
-          play_game(turn_winner, turn_loser)
+      cards = [x, y] ++ tied
 
-        %{name: :player_2} = turn_winner ->
-          play_game(turn_loser, turn_winner)
+      cond do
+        x > y ->
+          Player.add_to_pile(p1, cards)
+          play_game(p1, p2)
+
+        x < y ->
+          Player.add_to_pile(p2, cards)
+          play_game(p1, p2)
+
+        x == y ->
+          war(p1, p2, cards ++ tied)
       end
     end
   end
 
-  defp play_turn(p1, p2, x \\ nil, y \\ nil, tied \\ []) do
-    {x, p1} = maybe_dequeue(p1, x)
-    {y, p2} = maybe_dequeue(p2, y)
-
-    cards = [x, y]
-
-    cond do
-      x > y -> {p1, p2, cards ++ tied}
-      x < y -> {p2, p1, cards ++ tied}
-      x == y -> war(p1, p2, cards ++ tied)
-    end
-  end
-
-  defp maybe_dequeue(p, nil), do: Queue.dequeue(p)
-  defp maybe_dequeue(p, c), do: {c, p}
+  defp maybe_remove_top(p, nil), do: Player.remove_top(p)
+  defp maybe_remove_top(_, card), do: card
 
   defp war(p1, p2, tied) do
-    cond do
-      !able_to_war?(p1) ->
-        {cards, p2} = Queue.flush(p2)
-        {p2, p1, cards ++ tied ++ Queue.inspect(p1)}
+    [n1, d1] = Player.remove_for_war(p1)
+    [n2, d2] = Player.remove_for_war(p2)
 
-      !able_to_war?(p2) ->
-        {cards, p1} = Queue.flush(p1)
-        {p1, p2, cards ++ tied}
-
-      true ->
-        {[d1, n1], p1} = Queue.dequeue(p1, 2)
-        {[d2, n2], p2} = Queue.dequeue(p2, 2)
-        play_turn(p1, p2, n1, n2, tied ++ [d1, d2])
-    end
+    play_game(p1, p2, n1, n2, tied ++ [d1, d2])
   end
 
   defp able_to_war?(player) do
-    Queue.size(player) > 3
+    Player.deck_size(player) > 3
   end
 
   # The game ends when a player losses all their cards
   # so their Stack is empty
-  defp maybe_get_winner(player_1, player_2) do
+  defp maybe_get_winner(p1, p2) do
     cond do
-      Queue.size(player_1) == 0 -> player_2
-      Queue.size(player_2) == 0 -> player_1
+      Player.deck_size(p1) == 0 -> p2
+      Player.deck_size(p2) == 0 -> p1
       true -> nil
     end
   end
@@ -106,12 +90,5 @@ defmodule War do
 
   defp remove_ace_weight(card) do
     (card == @ace_weight && 1) || card
-  end
-
-  # Cards won from a war needs to be pushed in descending order
-  defp push_cards(player, cards) do
-    cards = Enum.sort(cards, :desc)
-
-    Enum.reduce(cards, player, &Queue.enqueue(&2, &1))
   end
 end
