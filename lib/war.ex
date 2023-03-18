@@ -12,6 +12,7 @@ defmodule War do
     {p1, p2} =
       deck
       |> Enum.map(&apply_ace_weight/1)
+      |> Enum.reverse()
       |> deal_deck()
 
     winner = play_game(p1, p2)
@@ -25,23 +26,28 @@ defmodule War do
 
   defp play_game(p1, p2, tied \\ [])
 
-  defp play_game([], p2, tied), do: p2 ++ tied
-  defp play_game(p1, [], tied), do: p1 ++ tied
-
-  # War, cards tied
-  defp play_game([c | xs], [c | ys], tied) do
-    cards = Enum.sort([c, c] ++ tied, :desc)
-    play_game(xs, ys, cards)
-  end
+  defp play_game([], [], tied), do: Enum.sort(tied, :desc)
+  defp play_game([], p2, tied), do: p2 ++ Enum.sort(tied, :desc)
+  defp play_game(p1, [], tied), do: p1 ++ Enum.sort(tied, :desc)
 
   # Normal game turn
   defp play_game([x | xs], [y | ys], tied) do
     cards = Enum.sort([x, y] ++ tied, :desc)
 
-    if x > y do
-      play_game(xs ++ cards, ys)
-    else
-      play_game(xs, ys ++ cards)
+    cond do
+      x > y ->
+        play_game(xs ++ cards, ys)
+
+      x < y ->
+        play_game(xs, ys ++ cards)
+
+      xs != [] and ys != [] ->
+        [fc_down1 | xs] = xs
+        [fc_down2 | ys] = ys
+        play_game(xs, ys, cards ++ [fc_down1, fc_down2])
+
+      true ->
+        play_game(xs, ys, cards)
     end
   end
 
